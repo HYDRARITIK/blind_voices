@@ -42,9 +42,10 @@ node both.js
 Connect and flash the Micropython firmware on the microcontrollers.
 Copy and paste the contents of pico1.py and pico2.py into the respective microcontrollers.
 Adjust any necessary configurations (e.g., network settings) within the Micropython files.
-Launch the Android app (guhi.dart) on an emulator or device to establish the connection with the server.
 
-5)###Ensure that the server, microcontrollers, and the app are running on the same network for proper communication.
+5)Launch the Android app (guhi.dart) on an emulator or device to establish the connection with the server.
+
+6)Ensure that the server, microcontrollers, and the app are running on the same network for proper communication.
 
 Please customize the instructions based on your specific project and microcontroller setup.
 
