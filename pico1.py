@@ -2,62 +2,49 @@ import network
 import usocket as socket
 import time
 import json
+import config  # Import configuration
 
-ssid="ritik"
-passwd="cocomelon"
+def connect_to_wifi(ssid, password):
+    """Connect to WiFi using provided SSID and password."""
+    sta_if = network.WLAN(network.STA_IF)
+    sta_if.active(True)
+    sta_if.connect(ssid, password)
+    while not sta_if.isconnected():
+        pass
+    print("Connected to WiFi")
 
-# Set up WiFi connection
-sta_if = network.WLAN(network.STA_IF)
-sta_if.active(True)
-sta_if.connect(ssid, passwd)
+def create_socket_connection(host, port):
+    """Create and return a socket connection to the server."""
+    try:
+        s = socket.socket()
+        s.connect((host, port))
+        return s
+    except Exception as e:
+        print(f"Failed to connect to server: {e}")
+        return None
 
-# Wait for connection to be established
-while not sta_if.isconnected():
-    pass
+def send_data_to_server(socket, data):
+    """Send data to the server and receive the response."""
+    try:
+        socket.send(data.encode())
+        response = socket.recv(1024).decode()
+        return response
+    except Exception as e:
+        print(f"Failed to send/receive data: {e}")
+        return None
 
-print("Connected to WiFi")
+def main():
+    connect_to_wifi(config.SSID, config.PASSWORD)
+    msg = json.dumps({"deviceId": config.DEVICE_ID})
 
-# Server Connection Info
-HOST = "192.168.159.72"
-PORT = 3005
+    while True:
+        s = create_socket_connection(config.SERVER_HOST, config.SERVER_PORT)
+        if s:
+            response = send_data_to_server(s, msg)
+            if response:
+                print("Data received from mobile:", response)
+            s.close()
+        time.sleep(2)
 
-device_id="1111"
-
-# Create connection
-
-print("line 30!")
-
-# A function we can call multiple times with different inputs
-# def send_data(msg):
-#     print("line 35!")
-#     print(msg)
-#     
-#     
-#     s.send(msg.encode())
-#     response = s.recv(1024).decode()
-#     return response
-# 
-# # Will print the server responses after each data request
-# print(send_data('Hello,'))
-# # print(send_data('Server!'))
-# print("line 46!")
-
-
-# Close the connection socket between the device and the server
-# s.close()
-
-msg = json.dumps({"deviceId":device_id,})
-
-
-while True:
-    s = socket.socket()
-    s.connect((HOST, PORT))
-    
-    s.send(msg.encode())
-    time.sleep(2)
-    
-    data_recieved=s.recv(1024).decode()
-    print("data recieved from mobile is",data_recieved)
-    s.close()
-    time.sleep(0.2)
-
+if __name__ == "__main__":
+    main()
