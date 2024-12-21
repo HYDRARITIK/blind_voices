@@ -1,101 +1,14 @@
-const net = require("net"); // Import network library (built-in with Node)
-
-const server = net.createServer();
-
-//using json parse and body parser
-// const bodyParser = require("body-parser");
-// const jsonParser = bodyParser.json();
-
-
-
-
-
-var pico1_socket = null; //haptic devices  //id: 1
-// var pico2_socket = null; //keyboard   //id: 2
-var android_socket = null;
-
-
-server.on("connection", (socket) => {
-
-    
-
-  socket.on("data", (data) => {
-    //print type of data
-    console.log("type of data: ",typeof data);
-   
-    //type of data is buffer so we need to convert it into string
-
-    //parse data into json
-    // console.log("data received from Picos : ","-->", data.toString()[0]);
-    var data_obj = JSON.parse(data.toString());
-    console.log("deviceid : ","-->", data_obj.deviceId);
-    console.log("message : ","-->", data_obj.message?data_obj.message:"what");
-
-    
-    if(data_obj.deviceId == "1111"){
-        console.log("haptic device");
-        pico1_socket = socket;
-    }else if(data_obj.deviceId == "2222"){
-        console.log("keyboard");
-        // pico2_socket = socket;jm
-        sendDataToMobile(data_obj.message);
-    }
-    
-
-    //sending data to mobile
-
-   
-  });
-  socket.on("end", () => {
-    console.log("client disconnected");
-  });
-});
-
-// Catch errors as they arise
-server.on("error", (err) => {
-  console.error("server error:", err);
-});
-
-
-
-
-//function to send data to mobile
-
- function sendDataToMobile(data){
-    if (android_socket != null) {
-         console.log("sending data to mobile client");
-        android_socket.emit("goToMobile", data);
-    }else{
-        console.log("socket is null");
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//socket.io server
-
+const net = require("net");
 const express = require("express");
-const app = express();
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const fs = require("fs");
+const config = require("./config"); // Import configuration
 
-app.use(cors());
-
+const app = express();
+const server = net.createServer();
 const io_server = http.createServer(app);
-
 const io = new Server(io_server, {
   cors: {
     // origin: "http://localhost:3000",
@@ -103,53 +16,100 @@ const io = new Server(io_server, {
   },
 });
 
+app.use(cors());
 
+let pico1Socket = null;  // Haptic device socket
+let androidSocket = null;  // Android device socket
 
+// Handle new TCP connections
+server.on("connection", (socket) => {
+  socket.on("data", (data) => {
+    const dataString = data.toString();
+    const dataObj = JSON.parse(dataString);
+
+    console.log("Device ID:", dataObj.deviceId);
+    console.log("Message:", dataObj.message || "No message");
+
+    logDataToFile(dataObj);
+
+    switch (dataObj.deviceId) {
+      case config.devices.hapticDeviceId:
+        console.log("Connected to haptic device");
+        pico1Socket = socket;
+        break;
+      case config.devices.keyboardDeviceId:
+        console.log("Connected to keyboard");
+        sendDataToMobile(dataObj.message);
+        break;
+      default:
+        console.log("Unknown device ID");
+    }
+  });
+
+  socket.on("end", () => {
+    console.log("Client disconnected");
+  });
+});
+
+// Handle server errors
+server.on("error", (err) => {
+  console.error("Server error:", err);
+});
+
+// Function to send data to mobile client
+function sendDataToMobile(data) {
+  if (androidSocket) {
+    console.log("Sending data to mobile client");
+    androidSocket.emit("goToMobile", data);
+  } else {
+    console.log("Android socket is null");
+  }
+}
+
+// Handle new WebSocket connections
 io.on("connection", (socket) => {
-    android_socket = socket;
-  console.log(`mobile User Connected: ${socket.id}`);
+  androidSocket = socket;
+  console.log(`Mobile user connected: ${socket.id}`);
 
-  //for getting data from mobile
   socket.on("gotoserver", (data) => {
-    console.log("data received from mobile: ", data);
-   
-    //sending data to pico1
+    console.log("Data received from mobile:", data);
     sendDataToPico1(data);
-    
   });
 
   socket.on("disconnect", () => {
-    console.log("mobile user disconnected");
+    console.log("Mobile user disconnected");
   });
 
-    socket.on("error", (err) => {
-    console.log("error: ", err);
+  socket.on("error", (err) => {
+    console.error("Socket error:", err);
+  });
 });
 
-
-});
-
-
-//function to send data to pico1
-
-function sendDataToPico1(data){
-    if (pico1_socket != null) {
-        pico1_socket.write(data);
-    }else{
-        console.log("pico1socket is null");
-    }
+// Function to send data to pico1 device
+function sendDataToPico1(data) {
+  if (pico1Socket) {
+    pico1Socket.write(data);
+  } else {
+    console.log("Pico1 socket is null");
+  }
 }
 
+// Function to log data to a file
+function logDataToFile(data) {
+  const logEntry = `${new Date().toISOString()} - Device ID: ${data.deviceId}, Message: ${data.message}\n`;
+  fs.appendFile("data_log.txt", logEntry, (err) => {
+    if (err) {
+      console.error("Failed to write to log file:", err);
+    }
+  });
+}
 
-
-//socket.io server
-
-
-io_server.listen(3010, () => {
-  console.log(" socket IO Server listening on port 3010");
+// Start the socket.io server
+io_server.listen(config.ports.socketIoPort, () => {
+  console.log(`Socket.IO server listening on port ${config.ports.socketIoPort}`);
 });
 
-// net socket server
-server.listen(3005, () => {
-  console.log("net socket Server listening on port 3005");
+// Start the net socket server
+server.listen(config.ports.netSocketPort, () => {
+  console.log(`Net socket server listening on port ${config.ports.netSocketPort}`);
 });
