@@ -1,28 +1,21 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'config.dart';  // Import configuration
 
-void main() => runApp(MyApp());
+void main() => runApp(const MyApp());
 
-
-// STEP1:  Stream setup
-class StreamSocket{
-  final _socketResponse= StreamController<String>();
+// STEP 1: Stream setup
+class StreamSocket {
+  final _socketResponse = StreamController<String>();
 
   void Function(String) get addResponse => _socketResponse.sink.add;
-
   Stream<String> get getResponse => _socketResponse.stream;
 
-  void dispose(){
+  void dispose() {
     _socketResponse.close();
   }
 }
-
-
-
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -32,18 +25,13 @@ class MyApp extends StatelessWidget {
     const title = 'DEMO APP';
     return const MaterialApp(
       title: title,
-      home: MyHomePage(
-        title: title,
-      ),
+      home: MyHomePage(title: title),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({
-    super.key,
-    required this.title,
-  });
+  const MyHomePage({super.key, required this.title});
 
   final String title;
 
@@ -54,25 +42,17 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   IO.Socket? _socket;
   final myController = TextEditingController();
-
-  // STEP2:  Stream setup
-  StreamSocket streamSocket =StreamSocket();
-
-
-
+  final StreamSocket streamSocket = StreamSocket();
 
   @override
   void initState() {
-    // TODO: implement initState
-    initSocket();
-    // initStreamBuilder();
-    // initStream();
     super.initState();
+    initSocket();
   }
 
   void initSocket() {
     try {
-      _socket = IO.io('http://192.168.159.72:3010', <String, dynamic>{
+      _socket = IO.io(Config.serverUrl, <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
       });
@@ -80,31 +60,24 @@ class _MyHomePageState extends State<MyHomePage> {
       _socket?.connect();
 
       _socket?.onConnect((_) {
-        print('connect to server succesfully');
-        // _socket?.emit("gotoserver",myController.text);
+        print('Connected to server successfully');
       });
 
-      _socket?.on("goToMobile", (data) {
+      _socket?.on('goToMobile', (data) {
         streamSocket.addResponse(data);
       });
 
       _socket?.onDisconnect((_) {
-        print('disconnect to server');
+        print('Disconnected from server');
       });
-
-      
     } catch (err) {
-      print(err);
+      print('Socket error: $err');
     }
   }
 
-
-
   void sendText(String msg) {
-    _socket?.emit("gotoserver", msg);
-    //empty text field
+    _socket?.emit('gotoserver', msg);
     myController.clear();
-    
   }
 
   @override
@@ -119,28 +92,29 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Form(
-                child: TextField(
-              controller: myController,
-            )),
+              child: TextField(
+                controller: myController,
+              ),
+            ),
             const SizedBox(height: 24),
-
-            // STEP3:  Stream setup
-            const Text(" data recieved from pico: ",style: TextStyle(fontSize: 20),),
+            const Text(
+              'Data received from pico:',
+              style: TextStyle(fontSize: 20),
+            ),
             const SizedBox(height: 24),
             StreamBuilder<String>(
               stream: streamSocket.getResponse,
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
-                  return Text(snapshot.data!,
-                  style: TextStyle(fontSize: 20),
+                  return Text(
+                    snapshot.data!,
+                    style: const TextStyle(fontSize: 20),
                   );
                 } else {
                   return const Text('No data');
                 }
               },
             ),
-           
-            
           ],
         ),
       ),
@@ -149,26 +123,15 @@ class _MyHomePageState extends State<MyHomePage> {
           sendText(myController.text);
         },
         tooltip: 'Send message',
-        
         child: const Icon(Icons.send),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      ),
     );
   }
 
-  // void _sendMessage() {
-  //   if (_controller.text.isNotEmpty) {
-  //     _channel.sink.add(_controller.text);
-  //     _controller.text= '';
-  //   }
-  // }
-
   @override
   void dispose() {
-    // _channel.sink.close();
-    // _controller.dispose();
     myController.dispose();
-    // _streamController.close();
-
+    streamSocket.dispose();
     super.dispose();
   }
 }
